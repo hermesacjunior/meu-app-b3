@@ -1,7 +1,6 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import pandas_ta as ta
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
@@ -83,6 +82,48 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# --- FUNÇÕES DE INDICADORES TÉCNICOS ---
+
+def ema(data, period):
+    """Calcula Média Móvel Exponencial"""
+    return data.ewm(span=period, adjust=False).mean()
+
+def rsi(data, period=14):
+    """Calcula Índice de Força Relativa (RSI)"""
+    delta = data.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
+def macd(data, fast=12, slow=26, signal=9):
+    """Calcula MACD"""
+    ema_fast = ema(data, fast)
+    ema_slow = ema(data, slow)
+    macd_line = ema_fast - ema_slow
+    signal_line = ema(macd_line, signal)
+    return macd_line, signal_line, macd_line - signal_line
+
+def bollinger_bands(data, period=20, num_std=2):
+    """Calcula Bandas de Bollinger"""
+    sma = data.rolling(window=period).mean()
+    std = data.rolling(window=period).std()
+    upper = sma + (std * num_std)
+    lower = sma - (std * num_std)
+    return upper, sma, lower
+
+def atr(high, low, close, period=14):
+    """Calcula Average True Range (ATR)"""
+    tr1 = high - low
+    tr2 = abs(high - close.shift())
+    tr3 = abs(low - close.shift())
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    return tr.rolling(window=period).mean()
+
+def roc(data, period=10):
+    """Calcula Rate of Change (ROC)"""
+    return ((data - data.shift(period)) / data.shift(period)) * 100
+
 # --- LISTA COMPLETA DE AÇÕES B3 ---
 LISTA_B3 = {
     "Financeiro": ["ITUB4.SA", "BBDC4.SA", "BBAS3.SA", "BRADESCO", "SANTANDER", "INTER4.SA"],
@@ -117,29 +158,32 @@ def calcular_indicadores(df):
     df = df.copy()
 
     # Médias móveis
-    df['EMA9'] = ta.ema(df['Close'], length=9)
-    df['EMA21'] = ta.ema(df['Close'], length=21)
-    df['EMA50'] = ta.ema(df['Close'], length=50)
-    df['SMA200'] = ta.sma(df['Close'], length=200)
+    df['EMA9'] = ema(df['Close'], 9)
+    df['EMA21'] = ema(df['Close'], 21)
+    df['EMA50'] = ema(df['Close'], 50)
+    df['SMA200'] = df['Close'].rolling(window=200).mean()
 
     # Momentum
-    df['RSI'] = ta.rsi(df['Close'], length=14)
-    df['MACD'] = ta.macd(df['Close'], fast=12, slow=26, signal=9)
+    df['RSI'] = rsi(df['Close'], 14)
+    macd_line, signal_line, histogram = macd(df['Close'], 12, 26, 9)
+    df['MACD'] = macd_line
+    df['MACD_Signal'] = signal_line
+    df['MACD_Hist'] = histogram
 
     # Bandas de Bollinger
-    bbands = ta.bbands(df['Close'], length=20)
-    df['BB_Upper'] = bbands['BBU_20_2.0']
-    df['BB_Mid'] = bbands['BBM_20_2.0']
-    df['BB_Lower'] = bbands['BBL_20_2.0']
+    bb_upper, bb_mid, bb_lower = bollinger_bands(df['Close'], 20, 2)
+    df['BB_Upper'] = bb_upper
+    df['BB_Mid'] = bb_mid
+    df['BB_Lower'] = bb_lower
 
     # Volume
-    df['Volume_MA'] = ta.sma(df['Volume'], length=20)
+    df['Volume_MA'] = df['Volume'].rolling(window=20).mean()
 
     # ATR para volatilidade
-    df['ATR'] = ta.atr(df['High'], df['Low'], df['Close'], length=14)
+    df['ATR'] = atr(df['High'], df['Low'], df['Close'], 14)
 
     # Taxa de variação
-    df['ROC'] = ta.roc(df['Close'], length=10)
+    df['ROC'] = roc(df['Close'], 10)
 
     return df
 
