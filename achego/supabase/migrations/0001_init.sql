@@ -37,7 +37,7 @@ create table profiles (
 
 -- Mantem a coluna geografica coerente com lat/long declarados.
 create or replace function sync_geog()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public, extensions as $$
 begin
   if new.latitude is not null and new.longitude is not null then
     new.geog := st_setsrid(st_makepoint(new.longitude, new.latitude), 4326)::geography;
@@ -140,7 +140,7 @@ returns table (
   region text,
   distance_km double precision
 )
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = public, extensions as $$
   with me as (
     select geog, birthdate from profiles where id = auth.uid()
   )

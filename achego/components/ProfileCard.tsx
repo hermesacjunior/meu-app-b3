@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { Button } from './Button';
 import { colors, radius, spacing } from './theme';
 
@@ -26,6 +27,16 @@ export function ProfileCard({
   onConnect: (id: string) => void;
   connecting: boolean;
 }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 420,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
   const meta = [
     person.age ? `${person.age} anos` : null,
     person.region,
@@ -35,7 +46,17 @@ export function ProfileCard({
     .join(' · ');
 
   return (
-    <View style={styles.card}>
+    <Animated.View
+      style={[
+        styles.card,
+        {
+          opacity: anim,
+          transform: [
+            { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) },
+          ],
+        },
+      ]}
+    >
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{person.display_name.charAt(0).toUpperCase()}</Text>
       </View>
@@ -50,7 +71,7 @@ export function ProfileCard({
       <View style={styles.action}>
         <Button label="Quero conhecer" onPress={() => onConnect(person.id)} loading={connecting} />
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
