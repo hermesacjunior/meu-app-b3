@@ -25,8 +25,12 @@ export default function TabsLayout() {
         options={{ title: 'Descobrir', tabBarIcon: icon('🧭') }}
       />
       <Tabs.Screen
+        name="conversas"
+        options={{ title: 'Conversas', tabBarIcon: icon('💬') }}
+      />
+      <Tabs.Screen
         name="connections"
-        options={{ title: 'Conexoes', tabBarIcon: icon('💬') }}
+        options={{ title: 'Conexoes', tabBarIcon: icon('❤️') }}
       />
       <Tabs.Screen
         name="profile"

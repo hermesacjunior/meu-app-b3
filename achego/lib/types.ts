@@ -57,3 +57,21 @@ export type Connection = {
   status: ConnectionStatus;
   created_at: string;
 };
+
+export type Message = {
+  id: string;
+  connection_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+};
+
+// Linha da aba Conversas (retorno da RPC my_matches).
+export type Match = {
+  connection_id: string;
+  other_id: string;
+  other_name: string;
+  other_region: string | null;
+  last_body: string | null;
+  last_at: string | null;
+};
