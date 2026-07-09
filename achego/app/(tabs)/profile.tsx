@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -10,8 +12,11 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
+import { decode } from 'base64-arraybuffer';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/Button';
+import { Avatar } from '@/components/Avatar';
 import { colors, radius, spacing } from '@/components/theme';
 import type { Gender, Profile, RelationshipStatus } from '@/lib/types';
 
@@ -32,6 +37,7 @@ const STATUS: { key: RelationshipStatus; label: string }[] = [
 export default function ProfileScreen() {
   const [profile, setProfile] = useState<Partial<Profile>>({});
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
@@ -68,6 +74,39 @@ export default function ProfileScreen() {
     set('longitude', pos.coords.longitude);
   }
 
+  async function pickAvatar() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permissao negada', 'Preciso de acesso as fotos para trocar sua imagem.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+      base64: true,
+    });
+    if (result.canceled || !result.assets[0]?.base64) return;
+
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return;
+    setUploading(true);
+    const path = `${auth.user.id}/avatar_${Date.now()}.jpg`;
+    const { error: upErr } = await supabase.storage
+      .from('avatars')
+      .upload(path, decode(result.assets[0].base64), { contentType: 'image/jpeg', upsert: true });
+    if (upErr) {
+      setUploading(false);
+      Alert.alert('Erro no upload', upErr.message);
+      return;
+    }
+    const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
+    await supabase.from('profiles').update({ avatar_url: pub.publicUrl }).eq('id', auth.user.id);
+    set('avatar_url', pub.publicUrl);
+    setUploading(false);
+  }
+
   async function save() {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return;
@@ -81,6 +120,7 @@ export default function ProfileScreen() {
       .update({
         display_name: profile.display_name,
         bio: profile.bio,
+        avatar_url: profile.avatar_url ?? null,
         gender: profile.gender,
         orientation: profile.orientation,
         relationship_status: profile.relationship_status,
@@ -100,6 +140,20 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.avatarWrap}>
+        <Pressable onPress={pickAvatar} disabled={uploading}>
+          <Avatar name={profile.display_name ?? '?'} url={profile.avatar_url} size={104} />
+          <View style={styles.avatarBadge}>
+            {uploading ? (
+              <ActivityIndicator color={colors.bg} size="small" />
+            ) : (
+              <Text style={styles.avatarBadgeText}>✎</Text>
+            )}
+          </View>
+        </Pressable>
+        <Text style={styles.avatarHint}>Toque para trocar sua foto</Text>
+      </View>
+
       <Text style={styles.label}>Nome</Text>
       <TextInput
         style={styles.input}
@@ -191,6 +245,22 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xl },
+  avatarWrap: { alignItems: 'center', marginTop: spacing.md, marginBottom: spacing.sm },
+  avatarBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: colors.bg,
+  },
+  avatarBadgeText: { color: colors.bg, fontSize: 16, fontWeight: '700' },
+  avatarHint: { color: colors.muted, fontSize: 13, marginTop: spacing.sm },
   label: { color: colors.muted, marginTop: spacing.md, fontSize: 13, fontWeight: '600' },
   input: {
     backgroundColor: colors.card,

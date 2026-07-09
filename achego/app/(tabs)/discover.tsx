@@ -89,7 +89,12 @@ export default function Discover() {
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.accent} />}
         renderItem={({ item }) => (
-          <ProfileCard person={item} onConnect={connect} connecting={connectingId === item.id} />
+          <ProfileCard
+            person={item}
+            onConnect={connect}
+            connecting={connectingId === item.id}
+            onRemoved={(id) => setPeople((prev) => prev.filter((p) => p.id !== id))}
+          />
         )}
         ListEmptyComponent={
           !loading ? (

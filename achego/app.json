@@ -31,10 +31,17 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "expo-notifications",
       [
         "expo-location",
         {
           "locationWhenInUsePermission": "O Achego usa sua localizacao apenas para mostrar pessoas proximas quando voce ativa a descoberta por regiao."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Achego acessa suas fotos para voce escolher a imagem do seu perfil."
         }
       ]
     ],

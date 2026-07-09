@@ -26,6 +26,8 @@ export type Profile = {
   gender: Gender | null;
   orientation: Orientation | null;
   relationship_status: RelationshipStatus | null;
+  // Foto de perfil (URL publica no storage de avatares).
+  avatar_url: string | null;
   // Regiao declarada (cidade/bairro), usada como filtro amplo.
   region: string | null;
   // Descoberta por proximidade so fica ativa se a pessoa consentir.
@@ -72,6 +74,16 @@ export type Match = {
   other_id: string;
   other_name: string;
   other_region: string | null;
+  other_avatar: string | null;
   last_body: string | null;
   last_at: string | null;
 };
+
+export const REPORT_REASONS = [
+  'Perfil falso',
+  'Assedio ou desrespeito',
+  'Conteudo improprio',
+  'Spam ou golpe',
+  'Outro',
+] as const;
+export type ReportReason = (typeof REPORT_REASONS)[number];

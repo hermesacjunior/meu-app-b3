@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { Avatar } from '@/components/Avatar';
 import { colors, radius, spacing } from '@/components/theme';
 import type { Match } from '@/lib/types';
 
@@ -47,13 +48,16 @@ export default function Conversas() {
             onPress={() =>
               router.push({
                 pathname: '/chat/[id]',
-                params: { id: item.connection_id, name: item.other_name },
+                params: {
+                  id: item.connection_id,
+                  name: item.other_name,
+                  avatar: item.other_avatar ?? '',
+                  otherId: item.other_id,
+                },
               })
             }
           >
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{item.other_name.charAt(0).toUpperCase()}</Text>
-            </View>
+            <Avatar name={item.other_name} url={item.other_avatar} size={52} />
             <View style={styles.rowText}>
               <View style={styles.rowTop}>
                 <Text style={styles.name}>{item.other_name}</Text>

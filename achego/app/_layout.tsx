@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { registerForPushNotifications } from '@/lib/push';
 import { colors } from '@/components/theme';
 
 export default function RootLayout() {
@@ -33,6 +34,11 @@ export default function RootLayout() {
       router.replace('/(tabs)/discover');
     }
   }, [session, segments, loading]);
+
+  // Registra o token de push assim que houver sessao.
+  useEffect(() => {
+    if (session) registerForPushNotifications();
+  }, [session]);
 
   if (loading) {
     return (

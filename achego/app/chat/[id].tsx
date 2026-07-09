@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -12,16 +14,26 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { Avatar } from '@/components/Avatar';
+import { ReportSheet } from '@/components/ReportSheet';
+import { blockUser, reportUser } from '@/lib/safety';
 import { colors, radius, spacing } from '@/components/theme';
-import type { Message } from '@/lib/types';
+import type { Message, ReportReason } from '@/lib/types';
 
 export default function ChatThread() {
-  const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
+  const { id, name, avatar, otherId } = useLocalSearchParams<{
+    id: string;
+    name?: string;
+    avatar?: string;
+    otherId?: string;
+  }>();
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]); // mais recente primeiro
   const [text, setText] = useState('');
   const [meId, setMeId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
@@ -78,6 +90,33 @@ export default function ChatThread() {
       const msg = data as Message;
       setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [msg, ...prev]));
     }
+    // Dispara a notificacao push para o outro lado (best-effort).
+    supabase.functions
+      .invoke('notify-message', { body: { connection_id: id, body } })
+      .catch(() => {});
+  }
+
+  async function confirmBlock() {
+    setMenuOpen(false);
+    if (!otherId) return;
+    Alert.alert('Bloquear', `Bloquear ${name ?? 'esta pessoa'}? Voces param de se ver no app.`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Bloquear',
+        style: 'destructive',
+        onPress: async () => {
+          await blockUser(otherId);
+          router.back();
+        },
+      },
+    ]);
+  }
+
+  async function submitReport(reason: ReportReason) {
+    if (!otherId) return;
+    await reportUser(otherId, reason);
+    setReportOpen(false);
+    Alert.alert('Obrigado', 'Recebemos sua denuncia e vamos analisar.');
   }
 
   return (
@@ -86,10 +125,12 @@ export default function ChatThread() {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Text style={styles.back}>‹</Text>
         </Pressable>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{(name ?? '?').charAt(0).toUpperCase()}</Text>
-        </View>
+        <Avatar name={name ?? '?'} url={avatar || null} size={36} />
         <Text style={styles.headerName}>{name ?? 'Conversa'}</Text>
+        <View style={styles.flex} />
+        <Pressable onPress={() => setMenuOpen(true)} hitSlop={12}>
+          <Text style={styles.menuDots}>⋯</Text>
+        </Pressable>
       </View>
 
       <KeyboardAvoidingView
@@ -142,6 +183,33 @@ export default function ChatThread() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setMenuOpen(false)}>
+          <Pressable style={styles.menu} onPress={(e) => e.stopPropagation()}>
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuOpen(false);
+                setReportOpen(true);
+              }}
+            >
+              <Text style={styles.menuText}>Denunciar</Text>
+            </Pressable>
+            <View style={styles.menuDivider} />
+            <Pressable style={styles.menuItem} onPress={confirmBlock}>
+              <Text style={[styles.menuText, styles.danger]}>Bloquear</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <ReportSheet
+        visible={reportOpen}
+        personName={name ?? 'esta pessoa'}
+        onClose={() => setReportOpen(false)}
+        onSubmit={submitReport}
+      />
     </SafeAreaView>
   );
 }
@@ -216,4 +284,17 @@ const styles = StyleSheet.create({
   sendDisabled: { opacity: 0.4 },
   pressed: { opacity: 0.8 },
   sendText: { color: colors.bg, fontSize: 18, fontWeight: '700' },
+  menuDots: { color: colors.muted, fontSize: 24, fontWeight: '700', paddingHorizontal: spacing.sm },
+  backdrop: { flex: 1, backgroundColor: '#00000066', justifyContent: 'center', padding: spacing.xl },
+  menu: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  menuItem: { padding: spacing.md, alignItems: 'center' },
+  menuText: { color: colors.text, fontSize: 16, fontWeight: '600' },
+  danger: { color: colors.accent },
+  menuDivider: { height: 1, backgroundColor: colors.border },
 });
